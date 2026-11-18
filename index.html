@@ -16,6 +16,9 @@
             --border-color: #e0e0e0;
             --th-bg: #fafafa;
             --tr-hover: #f0f7ff;
+            --podium-1-bg: #fcf8eb;
+            --podium-2-bg: #f4f5f6;
+            --podium-3-bg: #fcf6ef;
         }
 
         * { box-sizing: border-box; }
@@ -72,7 +75,7 @@
         .tab-btn:hover { background-color: #e9ecef; }
         .tab-btn.active { background-color: var(--wca-blue); color: #fff; }
 
-        /* Botones de iconos (Matriz y Proyector) */
+        /* Botón de Proyector */
         .controls-container {
             display: flex; justify-content: flex-end; align-items: center;
             gap: 10px; margin-bottom: 12px; padding-right: 4px;
@@ -138,7 +141,7 @@
             opacity: 1;
         }
 
-        /* Contenedor de tabla con scroll y cabeceras fijas */
+        /* Contenedor de tabla con scroll y cabeceras/columnas fijas */
         .table-container {
             background-color: var(--card-bg);
             border-radius: 8px;
@@ -149,8 +152,13 @@
             width: 100%;
         }
 
-        table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; }
-        table.matrix-mode { width: max-content; min-width: 100%; }
+        table {
+            width: max-content;
+            min-width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: auto;
+        }
 
         th, td {
             padding: 12px 10px; text-align: left;
@@ -185,33 +193,54 @@
             color: var(--wca-blue);
         }
 
-        tbody tr { cursor: pointer; transition: background 0.1s; }
+        tbody tr { cursor: pointer; background-color: var(--card-bg); transition: background 0.1s; }
         tbody tr:hover { background-color: var(--tr-hover); }
 
-        /* Resaltado sutil de podio */
-        tbody tr.podium-1 { background-color: rgba(212, 160, 23, 0.07); }
+        /* Columnas fijas a la izquierda (Rank y Competidor) */
+        .rank-col {
+            position: sticky;
+            left: 0;
+            width: 50px;
+            min-width: 50px;
+            max-width: 50px;
+            text-align: center;
+            font-weight: bold;
+            z-index: 5;
+            background-color: inherit;
+        }
+
+        .name-col {
+            position: sticky;
+            left: 50px;
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            z-index: 5;
+            background-color: inherit;
+            box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.12);
+        }
+
+        thead th.rank-col,
+        thead th.name-col {
+            z-index: 20;
+            background-color: var(--th-bg);
+        }
+
+        /* Resaltado sutil de podio (colores opacos para que no se transparente al scrollear) */
+        tbody tr.podium-1 { background-color: var(--podium-1-bg); }
         tbody tr.podium-1 td.rank-col { border-left: 4px solid #d4a017; color: #b8860b; }
 
-        tbody tr.podium-2 { background-color: rgba(140, 150, 158, 0.08); }
+        tbody tr.podium-2 { background-color: var(--podium-2-bg); }
         tbody tr.podium-2 td.rank-col { border-left: 4px solid #8c969e; color: #6c757d; }
 
-        tbody tr.podium-3 { background-color: rgba(205, 127, 50, 0.07); }
+        tbody tr.podium-3 { background-color: var(--podium-3-bg); }
         tbody tr.podium-3 td.rank-col { border-left: 4px solid #cd7f32; color: #a05a1c; }
 
         tbody tr.podium-1:hover,
         tbody tr.podium-2:hover,
         tbody tr.podium-3:hover { background-color: var(--tr-hover); }
 
-        .rank-col { width: 50px; min-width: 50px; text-align: center; font-weight: bold; }
-        .name-col { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
         .score-col { width: 75px; min-width: 75px; text-align: right; font-weight: bold; color: var(--wca-orange); }
-
-        .score-header-wrap {
-            display: inline-flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 8px;
-        }
 
         .projector-ctrl-btn {
             background: transparent;
@@ -259,7 +288,7 @@
         .matrix-penalty { color: #e74c3c; font-weight: bold; }
         .matrix-rank { color: var(--text-main); }
 
-        /* Colores de metales para 1º, 2º y 3º en la matriz (sin negrita) */
+        /* Colores de metales para 1º, 2º y 3º en la matriz */
         .medal-1 { color: #b8860b; font-weight: normal; }
         .medal-2 { color: #7f8c8d; font-weight: normal; }
         .medal-3 { color: #b86b28; font-weight: normal; }
@@ -331,10 +360,18 @@
             padding: 0 16px;
         }
 
+        body.projector-mode .rank-col,
+        body.projector-mode .name-col {
+            position: static;
+            box-shadow: none;
+            max-width: none;
+        }
+
         body.projector-mode .score-col { width: auto; }
         body.projector-mode .matrix-header-icon { font-size: 26px; }
-        body.projector-mode .name-col { max-width: none; }
-        body.projector-mode .matrix-cell { width: 64px; min-width: 64px; }
+        body.projector-mode .matrix-cell { width: 58px; min-width: 58px; }
+        .projector-close-col { width: 48px; min-width: 48px; text-align: center; padding: 0 8px !important; }
+        .projector-pause-col { width: 44px; min-width: 44px; text-align: right; padding: 0 4px !important; }
 
         /* Animaciones: sale hacia la izquierda, entra desde la derecha */
         @keyframes slideOutLeft {
@@ -363,9 +400,15 @@
             .search-box input, .search-box button { width: 100%; text-align: center; }
             .tab-btn { padding: 8px 10px; font-size: 14px; }
             th, td { padding: 10px 6px; font-size: 14px; }
-            .name-col { max-width: 140px; }
+            .rank-col { width: 42px; min-width: 42px; max-width: 42px; }
+            .name-col { left: 42px; max-width: 145px; }
             .matrix-cell { width: 42px; min-width: 42px; padding: 10px 4px !important; }
             .table-container { max-height: 68vh; }
+        }
+
+        body.projector-mode.hide-cursor,
+        body.projector-mode.hide-cursor * {
+            cursor: none !important;
         }
     </style>
 </head>
@@ -373,7 +416,7 @@
 
 <div class="container">
     <div class="header">
-        <h1>WCA Live - Sum of Ranks</h1>
+        <h1 id="pageTitle">WCA Live - Sum of Ranks</h1>
     </div>
 
     <div class="search-box">
@@ -392,15 +435,6 @@
         </div>
 
         <div class="controls-container">
-            <button id="matrixBtn" class="icon-btn" data-tooltip="Matriz" onclick="toggleMatrix()" aria-label="Matriz">
-                <svg viewBox="0 0 24 24">
-                    <rect x="3" y="4" width="18" height="16" rx="2"></rect>
-                    <line x1="3" y1="9.5" x2="21" y2="9.5"></line>
-                    <line x1="3" y1="14.5" x2="21" y2="14.5"></line>
-                    <line x1="9" y1="4" x2="9" y2="20"></line>
-                    <line x1="15" y1="4" x2="15" y2="20"></line>
-                </svg>
-            </button>
             <button id="projectorBtn" class="icon-btn" data-tooltip="Modo Proyector" onclick="toggleProjectorMode(true)" aria-label="Modo Proyector">
                 <svg viewBox="0 0 24 24">
                     <rect x="2" y="8" width="20" height="9" rx="2"></rect>
@@ -451,7 +485,6 @@
     let globalData = {};
     let currentTab = 'general';
     let currentSort = 'score';
-    let isMatrixView = false;
     let isProjectorMode = false;
     let isProjectorPaused = false;
 
@@ -459,6 +492,8 @@
     let projectorTimer = null;
     let autoRefreshInterval = null;
     let currentRankingsCache = [];
+    let wakeLock = null;
+    let cursorTimer = null;
 
     window.onload = () => {
         document.getElementById('compId').addEventListener('keypress', function (e) {
@@ -499,6 +534,14 @@
             }
         });
 
+        document.addEventListener('mousemove', resetCursorTimer);
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && isProjectorMode) {
+                requestWakeLock();
+            }
+        }); 
+
         const urlParams = new URLSearchParams(window.location.search);
         const compParam = urlParams.get('comp');
         if (compParam) {
@@ -526,19 +569,6 @@
         if (!isProjectorPaused) startProjectorCycle();
     }
 
-    function toggleMatrix() {
-        isMatrixView = !isMatrixView;
-        if (!isMatrixView) currentSort = 'score';
-
-        const btn = document.getElementById('matrixBtn');
-        const table = document.getElementById('mainTable');
-
-        btn.classList.toggle('active', isMatrixView);
-        table.classList.toggle('matrix-mode', isMatrixView);
-
-        renderTable();
-    }
-
     function setSort(sortKey) {
         if (sortKey === 'score') {
             currentSort = 'score';
@@ -547,6 +577,30 @@
         }
         projectorPage = 0;
         renderTable();
+    }
+
+    async function requestWakeLock() {
+        if ('wakeLock' in navigator) {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+            } catch (err) {}
+        }
+    }
+
+    function releaseWakeLock() {
+        if (wakeLock) {
+            wakeLock.release().catch(() => {});
+            wakeLock = null;
+        }
+    }
+
+    function resetCursorTimer() {
+        if (!isProjectorMode) return;
+        document.body.classList.remove('hide-cursor');
+        clearTimeout(cursorTimer);
+        cursorTimer = setTimeout(() => {
+            if (isProjectorMode) document.body.classList.add('hide-cursor');
+        }, 3000);
     }
 
     function toggleProjectorMode(turnOn) {
@@ -563,8 +617,12 @@
             projectorPage = 0;
             renderTable();
             startProjectorCycle();
+            requestWakeLock();
+            resetCursorTimer();
         } else {
-            document.body.classList.remove('projector-mode');
+            document.body.classList.remove('projector-mode', 'hide-cursor');
+            clearTimeout(cursorTimer);
+            releaseWakeLock();
             if (document.fullscreenElement) {
                 document.exitFullscreen().catch(() => {});
             }
@@ -665,6 +723,10 @@
 
             const wcifData = await response.json();
             processData(wcifData);
+
+            const compName = wcifData.name || competitionId;
+            document.getElementById('pageTitle').innerText = `${compName} - Sum of Ranks`;
+            document.title = `${compName} - Sum of Ranks`;
 
             if (!isSilent) {
                 statusEl.style.display = 'none';
@@ -811,25 +873,13 @@
 
         const thRank = document.createElement('th'); thRank.className = 'rank-col'; thRank.innerText = 'Rank';
         const thName = document.createElement('th'); thName.className = 'name-col'; thName.innerText = 'Competidor';
-        const thScore = document.createElement('th');
-        thScore.className = 'score-col' + (isMatrixView ? ' sortable' : '') + (isMatrixView && currentSort === 'score' ? ' sort-active' : '');
 
-        if (isMatrixView) {
-            thScore.onclick = () => setSort('score');
-        }
+        headerRow.appendChild(thRank);
+        headerRow.appendChild(thName);
 
         if (isProjectorMode) {
-            const wrap = document.createElement('div');
-            wrap.className = 'score-header-wrap';
-
-            const closeBtn = document.createElement('button');
-            closeBtn.className = 'projector-ctrl-btn close-proj';
-            closeBtn.title = 'Salir del Proyector';
-            closeBtn.innerHTML = CLOSE_SVG;
-            closeBtn.onclick = (e) => {
-                e.stopPropagation();
-                toggleProjectorMode(false);
-            };
+            const thPause = document.createElement('th');
+            thPause.className = 'projector-pause-col';
 
             const pauseBtn = document.createElement('button');
             pauseBtn.id = 'projectorPauseBtn';
@@ -841,27 +891,39 @@
                 toggleProjectorPause();
             };
 
-            const label = document.createElement('span');
-            label.innerText = 'Puntos';
-
-            wrap.appendChild(closeBtn);
-            wrap.appendChild(pauseBtn);
-            wrap.appendChild(label);
-            thScore.appendChild(wrap);
-        } else {
-            thScore.innerText = 'Puntos';
+            thPause.appendChild(pauseBtn);
+            headerRow.appendChild(thPause);
         }
 
-        headerRow.appendChild(thRank); headerRow.appendChild(thName); headerRow.appendChild(thScore);
+        const thScore = document.createElement('th');
+        thScore.className = 'score-col sortable' + (currentSort === 'score' ? ' sort-active' : '');
+        thScore.innerText = 'Puntos';
+        thScore.onclick = () => setSort('score');
+        headerRow.appendChild(thScore);
 
-        if (isMatrixView) {
-            targetEvents.forEach(eventId => {
-                const th = document.createElement('th');
-                th.className = 'matrix-cell sortable' + (currentSort === eventId ? ' sort-active' : '');
-                th.innerHTML = `<span class="cubing-icon event-${eventId} matrix-header-icon"></span>`;
-                th.onclick = () => setSort(eventId);
-                headerRow.appendChild(th);
-            });
+        targetEvents.forEach(eventId => {
+            const th = document.createElement('th');
+            th.className = 'matrix-cell sortable' + (currentSort === eventId ? ' sort-active' : '');
+            th.innerHTML = `<span class="cubing-icon event-${eventId} matrix-header-icon"></span>`;
+            th.onclick = () => setSort(eventId);
+            headerRow.appendChild(th);
+        });
+
+        if (isProjectorMode) {
+            const thClose = document.createElement('th');
+            thClose.className = 'projector-close-col';
+
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'projector-ctrl-btn close-proj';
+            closeBtn.title = 'Salir del Proyector';
+            closeBtn.innerHTML = CLOSE_SVG;
+            closeBtn.onclick = (e) => {
+                e.stopPropagation();
+                toggleProjectorMode(false);
+            };
+
+            thClose.appendChild(closeBtn);
+            headerRow.appendChild(thClose);
         }
     }
 
@@ -876,22 +938,36 @@
         const tdName = document.createElement('td'); tdName.className = 'name-col'; tdName.title = competitor.name; tdName.innerText = competitor.name;
         const tdScore = document.createElement('td'); tdScore.className = 'score-col'; tdScore.innerText = competitor.score;
 
-        tr.appendChild(tdRank); tr.appendChild(tdName); tr.appendChild(tdScore);
+        tr.appendChild(tdRank);
+        tr.appendChild(tdName);
 
-        if (isMatrixView) {
-            targetEvents.forEach(eventId => {
-                const td = document.createElement('td');
-                td.className = 'matrix-cell';
-                if (competitor.breakdown[eventId]) {
-                    const rankVal = competitor.breakdown[eventId];
-                    const medalClass = (rankVal >= 1 && rankVal <= 3) ? ` medal-${rankVal}` : '';
-                    td.innerHTML = `<span class="matrix-rank${medalClass}">${rankVal}</span>`;
-                } else {
-                    td.innerHTML = `<span class="matrix-penalty">${globalData.eventMaxRanks[eventId]}</span>`;
-                }
-                tr.appendChild(td);
-            });
+        if (isProjectorMode) {
+            const tdPause = document.createElement('td');
+            tdPause.className = 'projector-pause-col';
+            tr.appendChild(tdPause);
         }
+
+        tr.appendChild(tdScore);
+
+        targetEvents.forEach(eventId => {
+            const td = document.createElement('td');
+            td.className = 'matrix-cell';
+            if (competitor.breakdown[eventId]) {
+                const rankVal = competitor.breakdown[eventId];
+                const medalClass = (rankVal >= 1 && rankVal <= 3) ? ` medal-${rankVal}` : '';
+                td.innerHTML = `<span class="matrix-rank${medalClass}">${rankVal}</span>`;
+            } else {
+                td.innerHTML = `<span class="matrix-penalty">${globalData.eventMaxRanks[eventId]}</span>`;
+            }
+            tr.appendChild(td);
+        });
+
+        if (isProjectorMode) {
+            const tdClose = document.createElement('td');
+            tdClose.className = 'projector-close-col';
+            tr.appendChild(tdClose);
+        }
+
         return tr;
     }
 
@@ -911,7 +987,7 @@
         if (currentRankingsCache.length === 0) {
             const emptyTr = document.createElement('tr');
             const emptyTd = document.createElement('td');
-            emptyTd.colSpan = 3 + (isMatrixView ? targetEvents.length : 0);
+            emptyTd.colSpan = 3 + targetEvents.length;
             emptyTd.style.textAlign = 'center';
             emptyTd.innerText = 'No hay resultados para esta categoría.';
             emptyTr.appendChild(emptyTd);
