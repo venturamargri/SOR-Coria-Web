@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WCA Live - Sum of Ranks</title>
+    <style>
+        :root {
+            --wca-blue: #00427c;
+            --wca-orange: #f57f20;
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            padding: 12px 15px;
+            font-size: 16px;
+            width: 300px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .search-box button {
+            padding: 12px 20px;
+            font-size: 16px;
+            background-color: var(--wca-blue);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .search-box button:hover {
+            background-color: #00305a;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            background-color: #e9ecef;
+        }
+
+        .tab-btn.active {
+            background-color: var(--wca-blue);
+            color: white;
+        }
+
+        /* Table */
+        .table-container {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #fafafa;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        tbody tr {
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+
+        tbody tr:hover {
+            background-color: #f0f7ff;
+        }
+
+        .rank-col { width: 80px; text-align: center; font-weight: bold; }
+        .score-col { width: 120px; text-align: right; font-weight: bold; color: var(--wca-orange); }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .modal h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: var(--wca-blue);
+        }
+
+        .breakdown-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .breakdown-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px dashed var(--border-color);
+        }
+
+        .breakdown-list li:last-child {
+            border-bottom: none;
+        }
+
+        .status {
+            text-align: center;
+            color: var(--text-muted);
+            margin: 20px 0;
+            font-style: italic;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>WCA Live - Sum of Ranks</h1>
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="compId" placeholder="ID de la competición (ej: GelvesOpen2026)" />
+        <button onclick="fetchCompetitionData()">Cargar Datos</button>
+    </div>
+
+    <div id="statusMessage" class="status">Introduce el ID de WCA Live para ver los resultados.</div>
+
+    <div id="appContent" style="display: none;">
+        <div class="tabs" id="tabsContainer">
+            <button class="tab-btn active" onclick="setTab('general')">General</button>
+            <button class="tab-btn" onclick="setTab('nxnxn')">NxNxN</button>
+            <button class="tab-btn" onclick="setTab('side')">Side Events</button>
+            <button class="tab-btn" onclick="setTab('quiet')">Quiet Events</button>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="rank-col">Rank</th>
+                        <th>Competidor</th>
+                        <th class="score-col">Puntuación</th>
+                    </tr>
+                </thead>
+                <tbody id="rankingTable">
+                    <!-- Filas dinámicas -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Pop-up -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+        <button class="close-btn" onclick="closeModal(event)">×</button>
+        <h2 id="modalCompetitorName">Nombre</h2>
+        <h3 style="font-size: 14px; color: #666; margin-top: -10px; margin-bottom: 20px;" id="modalCategoryTitle"></h3>
+        <ul class="breakdown-list" id="modalBreakdown">
+            <!-- Desglose dinámico -->
+        </ul>
+    </div>
+</div>
+
+<script>
+    // Definición de disciplinas según tu imagen (FTO incluido)
+    const EVENT_GROUPS = {
+        'nxnxn': ['333', '222', '444', '555', '666', '777'],
+        'side': ['333oh', 'clock', 'fto', 'minx', 'pyram', 'skewb', 'sq1'],
+        'quiet': ['333bf', '333fm', '444bf', '555bf', '333mbf']
+    };
+
+    let competitionId = '';
+    let globalData = {}; 
+    let currentTab = 'general';
+
+    const GRAPHQL_ENDPOINT = 'https://live.worldcubeassociation.org/api/graphql';
+
+    async function fetchCompetitionData() {
+        const input = document.getElementById('compId').value.trim();
+        if (!input) return;
+        
+        competitionId = input;
+        const statusEl = document.getElementById('statusMessage');
+        const contentEl = document.getElementById('appContent');
+        
+        statusEl.innerText = "Descargando datos oficiales de la WCA...";
+        statusEl.style.color = '#666'; 
+        contentEl.style.display = 'none';
+
+        try {
+            // URL OFICIAL corregida: El WCIF público se pide a www.worldcubeassociation.org
+            const response = await fetch(`https://www.worldcubeassociation.org/api/v0/competitions/${competitionId}/wcif/public`);
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error("Competición no encontrada. Comprueba que el ID esté bien escrito (ej: CampeonatoDeAndalucia2026).");
+                }
+                throw new Error(`Error del servidor WCA: ${response.status}`);
+            }
+
+            const wcifData = await response.json();
+
+            processData(wcifData);
+            
+            statusEl.style.display = 'none';
+            contentEl.style.display = 'block';
+            setTab('general');
+
+        } catch (error) {
+            statusEl.style.display = 'block';
+            statusEl.style.color = '#e74c3c';
+            statusEl.innerText = error.message;
+            console.error(error);
+        }
+    }
+
+    function processData(wcif) {
+        const competitors = {};
+        const eventMaxRanks = {}; 
+        const activeEvents = new Set();
+
+        // 1. En WCIF, primero sacamos el diccionario de Personas (RegistrantId -> Nombre)
+        const personsMap = {};
+        if (wcif.persons) {
+            wcif.persons.forEach(p => {
+                // registrantId es el ID interno que usan los resultados
+                if (p.registrantId !== null && p.registrantId !== undefined) {
+                    personsMap[p.registrantId] = p.name;
+                }
+            });
+        }
+
+        // 2. Recorremos los eventos y sus resultados
+        if (wcif.events) {
+            wcif.events.forEach(event => {
+                const eventId = event.id;
+                let maxRankForEvent = 0;
+                let hasResults = false;
+
+                event.rounds.forEach(round => {
+                    if (!round.results || round.results.length === 0) return;
+
+                    round.results.forEach(result => {
+                        hasResults = true;
+                        const pId = result.personId;
+                        const pName = personsMap[pId] || "Competidor Desconocido";
+                        const rank = result.ranking;
+
+                        // Si no hay rank (ej. no se presentó aún o DNS sin puesto), lo saltamos
+                        if (!rank) return;
+
+                        if (!competitors[pId]) {
+                            competitors[pId] = { name: pName, events: {} };
+                        }
+                        
+                        // Guardamos siempre el mejor ranking (el más bajo) si hay varias rondas
+                        if (!competitors[pId].events[eventId] || rank < competitors[pId].events[eventId]) {
+                            competitors[pId].events[eventId] = rank;
+                        }
+
+                        if (rank > maxRankForEvent) {
+                            maxRankForEvent = rank;
+                        }
+                    });
+                });
+
+                if (hasResults) {
+                    activeEvents.add(eventId);
+                    // Penalización SOR: número de participantes del evento + 1
+                    eventMaxRanks[eventId] = maxRankForEvent + 1;
+                }
+            });
+        }
+
+        globalData = { competitors, eventMaxRanks, activeEvents };
+    }
+
+    function setTab(tabName) {
+        currentTab = tabName;
+        
+        // Actualizar UI de botones
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.tab-btn[onclick="setTab('${tabName}')"]`).classList.add('active');
+
+        renderTable();
+    }
+
+    function getEventsForCurrentTab() {
+        let targetEvents = [];
+        if (currentTab === 'general') {
+            targetEvents = Array.from(globalData.activeEvents);
+        } else {
+            const group = EVENT_GROUPS[currentTab];
+            // Solo eventos del grupo que se hayan celebrado (tengan resultados)
+            targetEvents = group.filter(e => globalData.activeEvents.has(e));
+        }
+        return targetEvents;
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('rankingTable');
+        tbody.innerHTML = '';
+
+        const targetEvents = getEventsForCurrentTab();
+        if (targetEvents.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">No hay resultados para esta categoría.</td></tr>`;
+            return;
+        }
+
+        // Calcular SOR para cada competidor
+        const rankings = [];
+        for (const [pId, data] of Object.entries(globalData.competitors)) {
+            let totalScore = 0;
+            let participatedInTab = false;
+
+            targetEvents.forEach(eventId => {
+                if (data.events[eventId]) {
+                    totalScore += data.events[eventId];
+                    participatedInTab = true;
+                } else {
+                    // Penalización por no participar en el evento
+                    totalScore += globalData.eventMaxRanks[eventId];
+                }
+            });
+
+            // Solo mostrar competidores que hayan participado al menos en un evento de esta pestaña
+            if (participatedInTab) {
+                rankings.push({
+                    id: pId,
+                    name: data.name,
+                    score: totalScore,
+                    breakdown: data.events
+                });
+            }
+        }
+
+        // Ordenar por menor puntuación
+        rankings.sort((a, b) => a.score - b.score);
+
+        // Renderizar filas
+        let currentRank = 1;
+        rankings.forEach((competitor, index) => {
+            // Manejar empates
+            if (index > 0 && competitor.score > rankings[index - 1].score) {
+                currentRank = index + 1;
+            }
+
+            const tr = document.createElement('tr');
+            tr.onclick = () => openModal(competitor);
+            
+            tr.innerHTML = `
+                <td class="rank-col">${currentRank}</td>
+                <td>${competitor.name}</td>
+                <td class="score-col">${competitor.score}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function openModal(competitor) {
+        document.getElementById('modalCompetitorName').innerText = competitor.name;
+        
+        const tabNames = {
+            'general': 'Categoría: General',
+            'nxnxn': 'Categoría: NxNxN',
+            'side': 'Categoría: Side Events',
+            'quiet': 'Categoría: Quiet Events'
+        };
+        document.getElementById('modalCategoryTitle').innerText = tabNames[currentTab];
+
+        const list = document.getElementById('modalBreakdown');
+        list.innerHTML = '';
+
+        const targetEvents = getEventsForCurrentTab();
+
+        targetEvents.forEach(eventId => {
+            const li = document.createElement('li');
+            const eventName = document.createElement('span');
+            eventName.innerText = eventId.toUpperCase();
+            
+            const eventScore = document.createElement('strong');
+            if (competitor.breakdown[eventId]) {
+                eventScore.innerText = `Rank ${competitor.breakdown[eventId]}`;
+            } else {
+                eventScore.innerText = `No compitió (Penalización: +${globalData.eventMaxRanks[eventId]})`;
+                eventScore.style.color = '#e74c3c';
+                eventScore.style.fontSize = '13px';
+            }
+
+            li.appendChild(eventName);
+            li.appendChild(eventScore);
+            list.appendChild(li);
+        });
+
+        document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    function closeModal(event) {
+        // Cerrar si se hace click en la X o fuera del modal
+        if (event.target.classList.contains('modal-overlay') || event.target.classList.contains('close-btn')) {
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+    }
+</script>
+
+</body>
+</html>
