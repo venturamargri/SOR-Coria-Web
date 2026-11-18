@@ -165,10 +165,42 @@
             font-weight: 600;
             color: var(--text-muted);
             box-shadow: 0 1px 0 var(--border-color);
+            user-select: none;
+        }
+
+        thead th.sortable {
+            cursor: pointer;
+            transition: background-color 0.15s, color 0.15s;
+        }
+
+        thead th.sortable:hover {
+            background-color: #eef3f8;
+        }
+
+        thead th.sort-active {
+            box-shadow: inset 0 -2px 0 var(--wca-blue), 0 1px 0 var(--border-color);
+        }
+
+        thead th.sort-active .matrix-header-icon {
+            color: var(--wca-blue);
         }
 
         tbody tr { cursor: pointer; transition: background 0.1s; }
         tbody tr:hover { background-color: var(--tr-hover); }
+
+        /* Resaltado sutil de podio */
+        tbody tr.podium-1 { background-color: rgba(212, 160, 23, 0.07); }
+        tbody tr.podium-1 td.rank-col { border-left: 4px solid #d4a017; color: #b8860b; }
+
+        tbody tr.podium-2 { background-color: rgba(140, 150, 158, 0.08); }
+        tbody tr.podium-2 td.rank-col { border-left: 4px solid #8c969e; color: #6c757d; }
+
+        tbody tr.podium-3 { background-color: rgba(205, 127, 50, 0.07); }
+        tbody tr.podium-3 td.rank-col { border-left: 4px solid #cd7f32; color: #a05a1c; }
+
+        tbody tr.podium-1:hover,
+        tbody tr.podium-2:hover,
+        tbody tr.podium-3:hover { background-color: var(--tr-hover); }
 
         .rank-col { width: 50px; min-width: 50px; text-align: center; font-weight: bold; }
         .name-col { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
@@ -226,6 +258,11 @@
         .matrix-header-icon { font-size: 18px; color: var(--text-muted); }
         .matrix-penalty { color: #e74c3c; font-weight: bold; }
         .matrix-rank { color: var(--text-main); }
+
+        /* Colores de metales para 1º, 2º y 3º en la matriz (sin negrita) */
+        .medal-1 { color: #b8860b; font-weight: normal; }
+        .medal-2 { color: #7f8c8d; font-weight: normal; }
+        .medal-3 { color: #b86b28; font-weight: normal; }
 
         /* Modal */
         .modal-overlay {
@@ -399,6 +436,13 @@
         'quiet': ['333bf', '333fm', '444bf', '555bf', '333mbf']
     };
 
+    const TAB_KEYS = {
+        '1': 'general',
+        '2': 'nxnxn',
+        '3': 'side',
+        '4': 'quiet'
+    };
+
     const PAUSE_SVG = `<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>`;
     const PLAY_SVG = `<svg viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20"></polygon></svg>`;
     const CLOSE_SVG = `<svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg>`;
@@ -406,13 +450,14 @@
     let competitionId = '';
     let globalData = {};
     let currentTab = 'general';
+    let currentSort = 'score';
     let isMatrixView = false;
     let isProjectorMode = false;
     let isProjectorPaused = false;
 
     let projectorPage = 0;
     let projectorTimer = null;
-    let projectorRefreshInterval = null;
+    let autoRefreshInterval = null;
     let currentRankingsCache = [];
 
     window.onload = () => {
@@ -427,11 +472,23 @@
         });
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && isProjectorMode) {
+            if (!isProjectorMode) return;
+
+            if (e.key === 'Escape') {
                 toggleProjectorMode(false);
-            } else if (e.code === 'Space' && isProjectorMode) {
+            } else if (e.code === 'Space') {
                 e.preventDefault();
                 toggleProjectorPause();
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                changeProjectorPageManual(1);
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                changeProjectorPageManual(-1);
+            } else if (TAB_KEYS[e.key]) {
+                e.preventDefault();
+                setTab(TAB_KEYS[e.key]);
+                if (!isProjectorPaused) startProjectorCycle();
             }
         });
 
@@ -450,14 +507,45 @@
         }
     };
 
+    function startAutoRefresh() {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+        autoRefreshInterval = setInterval(() => {
+            if (competitionId && !document.hidden) {
+                fetchCompetitionData(true);
+            }
+        }, 60000);
+    }
+
+    function changeProjectorPageManual(delta) {
+        const { rowsPerPage } = getProjectorLayout();
+        const totalPages = Math.ceil(currentRankingsCache.length / rowsPerPage);
+        if (totalPages <= 1) return;
+
+        projectorPage = (projectorPage + delta + totalPages) % totalPages;
+        renderProjectorPage(false);
+        if (!isProjectorPaused) startProjectorCycle();
+    }
+
     function toggleMatrix() {
         isMatrixView = !isMatrixView;
+        if (!isMatrixView) currentSort = 'score';
+
         const btn = document.getElementById('matrixBtn');
         const table = document.getElementById('mainTable');
 
         btn.classList.toggle('active', isMatrixView);
         table.classList.toggle('matrix-mode', isMatrixView);
 
+        renderTable();
+    }
+
+    function setSort(sortKey) {
+        if (sortKey === 'score') {
+            currentSort = 'score';
+        } else {
+            currentSort = (currentSort === sortKey) ? 'score' : sortKey;
+        }
+        projectorPage = 0;
         renderTable();
     }
 
@@ -475,20 +563,12 @@
             projectorPage = 0;
             renderTable();
             startProjectorCycle();
-
-            projectorRefreshInterval = setInterval(() => {
-                if (competitionId && isProjectorMode) fetchCompetitionData(true);
-            }, 60000);
         } else {
             document.body.classList.remove('projector-mode');
             if (document.fullscreenElement) {
                 document.exitFullscreen().catch(() => {});
             }
             stopProjectorCycle();
-            if (projectorRefreshInterval) {
-                clearInterval(projectorRefreshInterval);
-                projectorRefreshInterval = null;
-            }
             renderTable();
         }
     }
@@ -590,6 +670,7 @@
                 statusEl.style.display = 'none';
                 contentEl.style.display = 'block';
                 setTab('general');
+                startAutoRefresh();
             } else {
                 calculateRankings();
                 if (isProjectorMode) {
@@ -661,6 +742,7 @@
 
     function setTab(tabName) {
         currentTab = tabName;
+        currentSort = 'score';
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`.tab-btn[onclick="setTab('${tabName}')"]`).classList.add('active');
         projectorPage = 0;
@@ -710,6 +792,16 @@
             competitor.displayRank = currentRank;
         });
 
+        if (currentSort !== 'score' && targetEvents.includes(currentSort)) {
+            const penalty = globalData.eventMaxRanks[currentSort];
+            rankings.sort((a, b) => {
+                const valA = a.breakdown[currentSort] || penalty;
+                const valB = b.breakdown[currentSort] || penalty;
+                if (valA !== valB) return valA - valB;
+                return a.score - b.score;
+            });
+        }
+
         currentRankingsCache = rankings;
     }
 
@@ -719,7 +811,12 @@
 
         const thRank = document.createElement('th'); thRank.className = 'rank-col'; thRank.innerText = 'Rank';
         const thName = document.createElement('th'); thName.className = 'name-col'; thName.innerText = 'Competidor';
-        const thScore = document.createElement('th'); thScore.className = 'score-col';
+        const thScore = document.createElement('th');
+        thScore.className = 'score-col' + (isMatrixView ? ' sortable' : '') + (isMatrixView && currentSort === 'score' ? ' sort-active' : '');
+
+        if (isMatrixView) {
+            thScore.onclick = () => setSort('score');
+        }
 
         if (isProjectorMode) {
             const wrap = document.createElement('div');
@@ -760,8 +857,9 @@
         if (isMatrixView) {
             targetEvents.forEach(eventId => {
                 const th = document.createElement('th');
-                th.className = 'matrix-cell';
+                th.className = 'matrix-cell sortable' + (currentSort === eventId ? ' sort-active' : '');
                 th.innerHTML = `<span class="cubing-icon event-${eventId} matrix-header-icon"></span>`;
+                th.onclick = () => setSort(eventId);
                 headerRow.appendChild(th);
             });
         }
@@ -769,6 +867,9 @@
 
     function buildRow(competitor, targetEvents) {
         const tr = document.createElement('tr');
+        if (competitor.displayRank >= 1 && competitor.displayRank <= 3) {
+            tr.classList.add(`podium-${competitor.displayRank}`);
+        }
         tr.onclick = () => { if (!isProjectorMode) openModal(competitor); };
 
         const tdRank = document.createElement('td'); tdRank.className = 'rank-col'; tdRank.innerText = competitor.displayRank;
@@ -782,7 +883,9 @@
                 const td = document.createElement('td');
                 td.className = 'matrix-cell';
                 if (competitor.breakdown[eventId]) {
-                    td.innerHTML = `<span class="matrix-rank">${competitor.breakdown[eventId]}</span>`;
+                    const rankVal = competitor.breakdown[eventId];
+                    const medalClass = (rankVal >= 1 && rankVal <= 3) ? ` medal-${rankVal}` : '';
+                    td.innerHTML = `<span class="matrix-rank${medalClass}">${rankVal}</span>`;
                 } else {
                     td.innerHTML = `<span class="matrix-penalty">${globalData.eventMaxRanks[eventId]}</span>`;
                 }
@@ -855,9 +958,15 @@
             const eventIcon = document.createElement('span'); eventIcon.className = `cubing-icon event-${eventId}`;
             const eventScore = document.createElement('strong');
             if (competitor.breakdown[eventId]) {
-                eventScore.innerText = competitor.breakdown[eventId]; eventScore.style.color = "var(--text-main)";
+                const rankVal = competitor.breakdown[eventId];
+                eventScore.innerText = rankVal;
+                if (rankVal === 1) eventScore.style.color = '#b8860b';
+                else if (rankVal === 2) eventScore.style.color = '#7f8c8d';
+                else if (rankVal === 3) eventScore.style.color = '#b86b28';
+                else eventScore.style.color = 'var(--text-main)';
             } else {
-                eventScore.innerText = globalData.eventMaxRanks[eventId]; eventScore.style.color = '#e74c3c';
+                eventScore.innerText = globalData.eventMaxRanks[eventId];
+                eventScore.style.color = '#e74c3c';
             }
             li.appendChild(eventIcon); li.appendChild(eventScore); list.appendChild(li);
         });
