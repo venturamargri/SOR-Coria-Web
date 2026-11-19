@@ -141,15 +141,13 @@
             opacity: 1;
         }
 
-        /* Contenedor de tabla con scroll y cabeceras/columnas fijas */
+        /* Contenedor de tabla (scroll único de página) */
         .table-container {
             background-color: var(--card-bg);
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            overflow: auto;
-            max-height: 72vh;
-            -webkit-overflow-scrolling: touch;
-            width: 100%;
+            width: max-content;
+            min-width: 100%;
         }
 
         table {
@@ -226,7 +224,7 @@
             background-color: var(--th-bg);
         }
 
-        /* Resaltado sutil de podio (colores opacos para que no se transparente al scrollear) */
+        /* Resaltado sutil de podio */
         tbody tr.podium-1 { background-color: var(--podium-1-bg); }
         tbody tr.podium-1 td.rank-col { border-left: 4px solid #d4a017; color: #b8860b; }
 
@@ -275,8 +273,8 @@
         }
 
         .projector-ctrl-btn svg {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             fill: currentColor;
         }
 
@@ -338,40 +336,95 @@
             overflow: hidden;
         }
 
-        body.projector-mode .container {
-            max-width: 100%; width: 100%; margin: 0;
-        }
-
         body.projector-mode .table-container {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            min-width: 0;
+            height: 100vh;
+            max-height: 100vh;
             border-radius: 0;
             box-shadow: none;
-            max-height: 100vh;
-            height: 100vh;
             overflow: hidden;
+            z-index: 500;
+            background-color: var(--card-bg);
+        }
+
+        body.projector-mode table {
+            width: 100%;
+            min-width: 0;
+            table-layout: fixed;
+        }
+
+        body.projector-mode thead th {
+            position: static;
         }
 
         body.projector-mode th {
-            font-size: 1.55rem;
-            padding: 14px 16px;
+            font-size: var(--proj-th-font, 20px);
+            padding: 12px 4px;
         }
 
         body.projector-mode td {
-            font-size: 1.65rem;
-            padding: 0 16px;
+            font-size: var(--proj-font, 22px);
+            padding: 0 4px;
         }
 
-        body.projector-mode .rank-col,
+        body.projector-mode .rank-col {
+            position: static;
+            width: var(--proj-rank-w, 56px);
+            min-width: 0;
+            max-width: none;
+            box-shadow: none;
+        }
+
         body.projector-mode .name-col {
             position: static;
-            box-shadow: none;
+            width: auto;
             max-width: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-shadow: none;
+            padding-left: 10px;
+            padding-right: 10px;
         }
 
-        body.projector-mode .score-col { width: auto; }
-        body.projector-mode .matrix-header-icon { font-size: 26px; }
-        body.projector-mode .matrix-cell { width: 58px; min-width: 58px; }
-        .projector-close-col { width: 48px; min-width: 48px; text-align: center; padding: 0 8px !important; }
-        .projector-pause-col { width: 44px; min-width: 44px; text-align: right; padding: 0 4px !important; }
+        body.projector-mode .projector-pause-col {
+            width: var(--proj-ctrl-w, 36px);
+            min-width: 0;
+            text-align: right;
+            padding: 0 2px !important;
+        }
+
+        body.projector-mode .score-col {
+            width: var(--proj-score-w, 86px);
+            min-width: 0;
+            padding-left: 4px;
+            padding-right: 8px;
+        }
+
+        body.projector-mode .matrix-header-icon {
+            font-size: var(--proj-icon, 22px);
+        }
+
+        body.projector-mode .matrix-cell {
+            width: var(--proj-cell-w, 50px);
+            min-width: 0;
+            padding-left: 2px !important;
+            padding-right: 2px !important;
+        }
+
+        body.projector-mode .projector-close-col {
+            width: var(--proj-ctrl-w, 36px);
+            min-width: 0;
+            text-align: center;
+            padding: 0 4px !important;
+        }
+
+        body.projector-mode.hide-cursor,
+        body.projector-mode.hide-cursor * {
+            cursor: none !important;
+        }
 
         /* Animaciones: sale hacia la izquierda, entra desde la derecha */
         @keyframes slideOutLeft {
@@ -403,12 +456,6 @@
             .rank-col { width: 42px; min-width: 42px; max-width: 42px; }
             .name-col { left: 42px; max-width: 145px; }
             .matrix-cell { width: 42px; min-width: 42px; padding: 10px 4px !important; }
-            .table-container { max-height: 68vh; }
-        }
-
-        body.projector-mode.hide-cursor,
-        body.projector-mode.hide-cursor * {
-            cursor: none !important;
         }
     </style>
 </head>
@@ -492,6 +539,7 @@
     let projectorTimer = null;
     let autoRefreshInterval = null;
     let currentRankingsCache = [];
+    let currentProjectorFontPx = 22;
     let wakeLock = null;
     let cursorTimer = null;
 
@@ -503,6 +551,8 @@
         document.addEventListener('fullscreenchange', () => {
             if (!document.fullscreenElement && isProjectorMode) {
                 toggleProjectorMode(false);
+            } else if (isProjectorMode) {
+                renderProjectorPage(false);
             }
         });
 
@@ -540,7 +590,7 @@
             if (document.visibilityState === 'visible' && isProjectorMode) {
                 requestWakeLock();
             }
-        }); 
+        });
 
         const urlParams = new URLSearchParams(window.location.search);
         const compParam = urlParams.get('comp');
@@ -557,26 +607,6 @@
                 fetchCompetitionData(true);
             }
         }, 60000);
-    }
-
-    function changeProjectorPageManual(delta) {
-        const { rowsPerPage } = getProjectorLayout();
-        const totalPages = Math.ceil(currentRankingsCache.length / rowsPerPage);
-        if (totalPages <= 1) return;
-
-        projectorPage = (projectorPage + delta + totalPages) % totalPages;
-        renderProjectorPage(false);
-        if (!isProjectorPaused) startProjectorCycle();
-    }
-
-    function setSort(sortKey) {
-        if (sortKey === 'score') {
-            currentSort = 'score';
-        } else {
-            currentSort = (currentSort === sortKey) ? 'score' : sortKey;
-        }
-        projectorPage = 0;
-        renderTable();
     }
 
     async function requestWakeLock() {
@@ -603,6 +633,69 @@
         }, 3000);
     }
 
+    function applyProjectorSizing(eventCount) {
+        const root = document.documentElement;
+        if (!isProjectorMode) {
+            root.style.removeProperty('--proj-font');
+            root.style.removeProperty('--proj-th-font');
+            root.style.removeProperty('--proj-icon');
+            root.style.removeProperty('--proj-cell-w');
+            root.style.removeProperty('--proj-rank-w');
+            root.style.removeProperty('--proj-score-w');
+            root.style.removeProperty('--proj-ctrl-w');
+            return;
+        }
+
+        const vw = window.innerWidth;
+        const rankW = Math.round(Math.min(68, Math.max(54, vw * 0.04)));
+        const ctrlW = Math.round(Math.min(44, Math.max(32, vw * 0.026)));
+        const minNameW = Math.max(200, Math.round(vw * 0.22));
+        const tentativeScoreW = Math.round(Math.min(104, Math.max(78, vw * 0.06)));
+
+        const fixedOtherW = rankW + ctrlW + tentativeScoreW + ctrlW;
+        const availableForEvents = Math.max(100, vw - fixedOtherW - minNameW);
+        const maxCellW = Math.round(Math.min(64, Math.max(46, vw * 0.04)));
+
+        const cellW = eventCount > 0
+            ? Math.floor(Math.min(maxCellW, availableForEvents / eventCount))
+            : maxCellW;
+
+        const fontPx = Math.round(Math.min(25, Math.max(14, cellW * 0.42)));
+        const thFontPx = Math.round(Math.min(23, Math.max(13, fontPx * 0.9)));
+        const iconPx = Math.round(Math.min(26, Math.max(16, cellW * 0.48)));
+        const scoreW = Math.max(tentativeScoreW, Math.round(thFontPx * 4.5));
+
+        currentProjectorFontPx = fontPx;
+
+        root.style.setProperty('--proj-font', `${fontPx}px`);
+        root.style.setProperty('--proj-th-font', `${thFontPx}px`);
+        root.style.setProperty('--proj-icon', `${iconPx}px`);
+        root.style.setProperty('--proj-cell-w', `${cellW}px`);
+        root.style.setProperty('--proj-rank-w', `${rankW}px`);
+        root.style.setProperty('--proj-score-w', `${scoreW}px`);
+        root.style.setProperty('--proj-ctrl-w', `${ctrlW}px`);
+    }
+
+    function changeProjectorPageManual(delta) {
+        const { rowsPerPage } = getProjectorLayout();
+        const totalPages = Math.ceil(currentRankingsCache.length / rowsPerPage);
+        if (totalPages <= 1) return;
+
+        projectorPage = (projectorPage + delta + totalPages) % totalPages;
+        renderProjectorPage(false);
+        if (!isProjectorPaused) startProjectorCycle();
+    }
+
+    function setSort(sortKey) {
+        if (sortKey === 'score') {
+            currentSort = 'score';
+        } else {
+            currentSort = (currentSort === sortKey) ? 'score' : sortKey;
+        }
+        projectorPage = 0;
+        renderTable();
+    }
+
     function toggleProjectorMode(turnOn) {
         isProjectorMode = turnOn;
         isProjectorPaused = false;
@@ -621,6 +714,7 @@
             resetCursorTimer();
         } else {
             document.body.classList.remove('projector-mode', 'hide-cursor');
+            applyProjectorSizing(0);
             clearTimeout(cursorTimer);
             releaseWakeLock();
             if (document.fullscreenElement) {
@@ -651,9 +745,9 @@
 
     function getProjectorLayout() {
         const thead = document.getElementById('tableHead');
-        const headerHeight = thead ? thead.getBoundingClientRect().height : 62;
-        const availableHeight = window.innerHeight - headerHeight;
-        const targetRowHeight = 68;
+        const headerHeight = thead ? thead.getBoundingClientRect().height : 56;
+        const availableHeight = window.innerHeight - headerHeight - 1;
+        const targetRowHeight = Math.max(46, Math.round(currentProjectorFontPx * 2.65));
         const rowsPerPage = Math.max(5, Math.floor(availableHeight / targetRowHeight));
         const exactRowHeight = availableHeight / rowsPerPage;
         return { rowsPerPage, exactRowHeight };
@@ -973,6 +1067,7 @@
 
     function renderTable() {
         const targetEvents = getEventsForCurrentTab();
+        applyProjectorSizing(targetEvents.length);
         renderHeader(targetEvents);
         calculateRankings();
 
@@ -1002,6 +1097,8 @@
 
     function renderProjectorPage(animateIn = true) {
         const targetEvents = getEventsForCurrentTab();
+        applyProjectorSizing(targetEvents.length);
+
         const tbody = document.getElementById('rankingTable');
         tbody.innerHTML = '';
 
