@@ -893,7 +893,7 @@
             if (!events.has(round.event_id)) events.set(round.event_id, { id: round.event_id, rounds: [] });
 
             const results = (round.results || []).map(result => {
-                const personId = result.wca_id || result.name;
+                const personId = result.wca_id;
                 persons.set(personId, { registrantId: personId, name: result.name });
                 // global_pos equivale al ranking del WCIF (en rondas enlazadas, pos es solo el de esa ronda)
                 return { personId, ranking: result.global_pos || result.pos };
