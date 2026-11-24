@@ -511,6 +511,8 @@
 </div>
 
 <script>
+    const WCA_API = 'https://www.worldcubeassociation.org/api';
+
     const EVENT_GROUPS = {
         'nxnxn': ['333', '222', '444', '555', '666', '777'],
         'side': ['333oh', 'clock', 'fto', 'minx', 'pyram', 'skewb', 'sq1'],
@@ -808,19 +810,24 @@
         }
 
         try {
-            const response = await fetch(`https://www.worldcubeassociation.org/api/v0/competitions/${competitionId}/wcif/public`);
+            // Resultados publicados si los hay; si no, WCIF
+            const publishedResults = await fetchPublishedResults(competitionId);
+            let compName = null;
 
-            if (!response.ok) {
-                if (response.status === 404) throw new Error("Competición no encontrada.");
-                throw new Error(`Error del servidor WCA: ${response.status}`);
+            if (publishedResults) {
+                processData(publishedResultsToWcif(publishedResults));
+                // Este endpoint no incluye el nombre; en los refrescos el título ya está puesto
+                if (!isSilent) compName = await fetchCompetitionName(competitionId) || competitionId;
+            } else {
+                const wcifData = await fetchWcif(competitionId);
+                processData(wcifData);
+                compName = wcifData.name || competitionId;
             }
 
-            const wcifData = await response.json();
-            processData(wcifData);
-
-            const compName = wcifData.name || competitionId;
-            document.getElementById('pageTitle').innerText = `${compName} - Sum of Ranks`;
-            document.title = `${compName} - Sum of Ranks`;
+            if (compName) {
+                document.getElementById('pageTitle').innerText = `${compName} - Sum of Ranks`;
+                document.title = `${compName} - Sum of Ranks`;
+            }
 
             if (!isSilent) {
                 statusEl.style.display = 'none';
@@ -843,6 +850,59 @@
                 statusEl.innerText = error.message;
             }
         }
+    }
+
+    // Devuelve las rondas con resultados publicados, o null si hay que usar el WCIF.
+    // Las competiciones sin resultados pueden devolver [] o sus rondas con "results" vacío.
+    async function fetchPublishedResults(id) {
+        try {
+            const response = await fetch(`${WCA_API}/v1/competitions/${encodeURIComponent(id)}/results`);
+            if (!response.ok) return null;
+            const rounds = await response.json();
+            const hasResults = rounds.some(round => round.results && round.results.length > 0);
+            return hasResults ? rounds : null;
+        } catch (err) {
+            return null;
+        }
+    }
+
+    async function fetchWcif(id) {
+        const response = await fetch(`${WCA_API}/v0/competitions/${encodeURIComponent(id)}/wcif/public`);
+        if (!response.ok) {
+            if (response.status === 404) throw new Error("Competición no encontrada.");
+            throw new Error(`Error del servidor WCA: ${response.status}`);
+        }
+        return response.json();
+    }
+
+    async function fetchCompetitionName(id) {
+        try {
+            const response = await fetch(`${WCA_API}/v0/competitions/${encodeURIComponent(id)}`);
+            return response.ok ? (await response.json()).name : null;
+        } catch (err) {
+            return null;
+        }
+    }
+
+    // Adapta los resultados publicados a la estructura del WCIF que usa processData
+    function publishedResultsToWcif(rounds) {
+        const persons = new Map();
+        const events = new Map();
+
+        rounds.forEach(round => {
+            if (!events.has(round.event_id)) events.set(round.event_id, { id: round.event_id, rounds: [] });
+
+            const results = (round.results || []).map(result => {
+                const personId = result.wca_id || result.name;
+                persons.set(personId, { registrantId: personId, name: result.name });
+                // global_pos equivale al ranking del WCIF (en rondas enlazadas, pos es solo el de esa ronda)
+                return { personId, ranking: result.global_pos || result.pos };
+            });
+
+            events.get(round.event_id).rounds.push({ id: round.wcif_id, results });
+        });
+
+        return { persons: [...persons.values()], events: [...events.values()] };
     }
 
     function processData(wcif) {
